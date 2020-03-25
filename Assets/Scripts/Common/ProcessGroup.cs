@@ -82,6 +82,7 @@ namespace DefaultNamespace
 		public void Update()
 		{
 			_process?.Update();
+			_next?.Update();
 		}
 	}
 	
