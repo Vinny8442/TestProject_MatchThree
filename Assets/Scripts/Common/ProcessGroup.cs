@@ -212,8 +212,11 @@ namespace DefaultNamespace
 		public bool Completed { get; private set; }
 		public void Update()
 		{
-			Completed = true;
-			OnReadyToRelease?.Invoke(this);
+			if (!Completed)
+			{
+				Completed = true;
+				OnReadyToRelease?.Invoke(this);
+			}
 		}
 	}
 }

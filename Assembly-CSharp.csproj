@@ -65,7 +65,6 @@
      <Compile Include="Assets\Scripts\Cells\CellPosition.cs" />
      <Compile Include="Assets\Scripts\Cells\CellSelectionFlag.cs" />
      <Compile Include="Assets\Scripts\Cells\CellType.cs" />
-     <Compile Include="Assets\Scripts\Cells\CellWorldPosition.cs" />
      <Compile Include="Assets\Scripts\Cells\WorldPositionLink.cs" />
      <Compile Include="Assets\Scripts\Common\ComponentSystemWithExtras.cs" />
      <Compile Include="Assets\Scripts\Common\CounterSystem.cs" />
@@ -78,7 +77,6 @@
      <Compile Include="Assets\Scripts\Common\Process.cs" />
      <Compile Include="Assets\Scripts\Common\ProcessGroup.cs" />
      <Compile Include="Assets\Scripts\Common\RequestStatus.cs" />
-     <Compile Include="Assets\Scripts\Common\TMPArchetypeLibrary.cs" />
      <Compile Include="Assets\Scripts\Common\TimerComponent.cs" />
      <Compile Include="Assets\Scripts\Common\TimerSystem.cs" />
      <Compile Include="Assets\Scripts\GameSettings.cs" />
@@ -99,6 +97,7 @@
      <Compile Include="Assets\Scripts\Notifications\ResetSelection.cs" />
      <Compile Include="Assets\Scripts\Refill\GenerateCellsSystem.cs" />
      <Compile Include="Assets\Scripts\Render\AnimationSystem.cs" />
+     <Compile Include="Assets\Scripts\Render\CellWorldPosition.cs" />
      <Compile Include="Assets\Scripts\Render\RenderSystem.cs" />
      <Compile Include="Assets\Scripts\Render\SelectionSystem.cs" />
      <Compile Include="Assets\Scripts\Render\ToWorldPositionSystem.cs" />

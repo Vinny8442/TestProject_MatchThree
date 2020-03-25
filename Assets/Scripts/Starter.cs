@@ -19,37 +19,8 @@ public class Starter : MonoBehaviour
 
         EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
 
-        TMPArchetypeLibrary.Init(entityManager);
-
         World.DefaultGameObjectInjectionWorld.GetOrCreateSystem<RenderSystem>().Init(CellBack, CellContent);
-
-        NativeArray<Entity> cells = new NativeArray<Entity>(sizeX * sizeY, Allocator.Temp);
-        World.DefaultGameObjectInjectionWorld.EntityManager.CreateEntity(TMPArchetypeLibrary.CellsArchetype, cells);
-        int index = 0;
-        for (int i = 0; i < sizeX; i++)
-        {
-            for (int j = 0; j < sizeY; j++)
-            {
-                entityManager.SetComponentData(cells[index], new CellContent
-                {
-                    type = CellType.Simple,
-                    Color = GameSettings.Instance.Colors[Random.Range(0, GameSettings.Instance.Colors.Length - 1)]
-                });
-                entityManager.SetComponentData(cells[index], new CellPosition
-                {
-                    x = i,
-                    y = j,
-                });
-                index++;
-            }
-        }
-        
-        
+        entityManager.CreateEntity(new GenerateAllCellsRequest());
     }
 
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
 }

@@ -18,7 +18,7 @@ namespace DefaultNamespace
 	public struct GenerateLineRequest : IComponentData, IProcessEntity
 	{
 		public RequestStatus Status;
-		public bool Completed => Status == RequestStatus.Complete;
+		public bool Completed => Status == RequestStatus.Completed;
 	}
 	
 	internal struct GenerateGravityChangerRequest : IComponentData, IProcessEntity
@@ -27,8 +27,9 @@ namespace DefaultNamespace
 		public bool Completed { get; internal set; }
 	}
 
-	public struct GenerateAllRequest : IComponentData, IProcessEntity
+	public struct GenerateAllCellsRequest : IComponentData, IProcessEntity
 	{
+		public RequestStatus Status;
 		public bool Completed { get; internal set; }
 	}
 
@@ -37,9 +38,16 @@ namespace DefaultNamespace
 		private static float GenerateTimeout = 0.2f;
 		
 		private GameStateHelper _helper;
+		private EntityArchetype _cellsArchetype;
 
 		protected override void OnStartRunning()
 		{
+			_cellsArchetype = EntityManager.CreateArchetype(
+				typeof(CellContent), 
+				typeof(CellPosition), 
+				typeof(CellSelectionFlag), 
+				typeof(WorldPositionLink));
+			
 			_helper = new GameStateHelper(EntityManager, Entities);
 		}
 
@@ -49,11 +57,30 @@ namespace DefaultNamespace
 			
 			GenerateGravityChangers();
 			
+			GenerateAll();
 			GenerateTopLine();
 		}
 
 		private void GenerateAll()
 		{
+			Entities.ForEach((Entity entity, ref GenerateAllCellsRequest request) =>
+			{
+				if (request.Status != RequestStatus.New) return;
+				
+				GameFieldSize size = _helper.GetSize();
+				Color[] colors = _helper.GetColors();
+				CellsMap map = new CellsMap(EntityManager);
+
+				for (int i = 0; i < size.Width; i++)
+				{
+					for (int j = 0; j < size.Height; j++)
+					{
+						AddCellAt(i,j,colors.GetRandom());
+					}
+				}
+
+				request.Status = RequestStatus.Completed;
+			});
 			
 		}
 
@@ -97,7 +124,7 @@ namespace DefaultNamespace
 			};
 			process.OnCompleted += group =>
 			{
-				EntityManager.SetComponentData(refillEntity, new GenerateLineRequest{Status = RequestStatus.Complete});
+				EntityManager.SetComponentData(refillEntity, new GenerateLineRequest{Status = RequestStatus.Completed});
 				DestroyEntityAfterFrame(refillEntity, 2);
 			};
 			HoldProcess(process);
@@ -121,7 +148,7 @@ namespace DefaultNamespace
 
 		private void AddCellAt(int x, int y, Color color, CellType type = CellType.Simple)
 		{
-			Entity entity = EntityManager.CreateEntity(TMPArchetypeLibrary.CellsArchetype);
+			Entity entity = EntityManager.CreateEntity(_cellsArchetype);
 			EntityManager.SetComponentData(entity, new CellPosition{x = x, y = y});
 			EntityManager.SetComponentData(entity, new CellContent
 			{

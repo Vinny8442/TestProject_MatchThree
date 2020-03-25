@@ -17,14 +17,13 @@
 	{
 		private static float CollapseTimeout = 0.2f;
 
-		private List<CellPosition> _gravityChangerPlannedPositions = new List<CellPosition>();
-
 		protected override void OnUpdate()
 		{
 			float timeout = CollapseTimeout;
 			Dictionary<Entity, bool> processedCells = null;
 			
 			ProcessGroup<TimerComponent, CollapseSystemMarker> timerProcess = null;
+			List<CellPosition> gravityChangers = new List<CellPosition>();
 			Entities.WithAll<CollapseCellsRequest>().ForEach((Entity entity) =>
 			{
 				if (processedCells == null)
@@ -35,12 +34,12 @@
 				if (timerProcess == null)
 				{
 					timerProcess = HoldProcess(new ProcessGroup<TimerComponent, CollapseSystemMarker>(EntityManager, Entities));
-					timerProcess.OnCompleted += OnCollapseAnimationComplete;
+					timerProcess.OnCompleted += group => OnCollapseAnimationComplete(gravityChangers);
 				}
 				var cellsToCollapse = EntityManager.GetBuffer<CellToCollapse>(entity).ToArray();
 				if (cellsToCollapse.Length >= 4)
 				{
-					_gravityChangerPlannedPositions.Add(EntityManager.GetComponentData<CellPosition>(cellsToCollapse[Random.Range(0, cellsToCollapse.Length)].Value));
+					gravityChangers.Add(EntityManager.GetComponentData<CellPosition>(cellsToCollapse[Random.Range(0, cellsToCollapse.Length)].Value));
 				}
 
 				bool invertGravity = false;
@@ -74,32 +73,28 @@
 			EntityManager.CreateEntity(new CellDestroyNotification{Entity = marker.Cell});
 		}
 
-		private void OnCollapseAnimationComplete(ProcessGroup<TimerComponent, CollapseSystemMarker> group)
+		private void OnCollapseAnimationComplete(List<CellPosition> gravityChangers)
 		{
-			if (_gravityChangerPlannedPositions.Count > 0)
-			{
-				HoldPromise(GenerateGravityChangers())
-					.Then(RequestGravity)
-					.Then(RequestRefill)
-					.Then(RequestGravity);
-			}
-			else
-			{
-				HoldPromise(RequestGravity())
-					.Then(RequestRefill)
-					.Then(RequestGravity);
-			}
+			HoldPromise(GenerateGravityChangers(gravityChangers))
+				.Then(RequestGravity)
+				.Then(RequestRefill)
+				.Then(RequestGravity);
 		}
 
-		private IProcess GenerateGravityChangers()
+		private IProcess GenerateGravityChangers(List<CellPosition> positions)
 		{
-			var process = new ProcessGroup<GenerateGravityChangerRequest, CollapseSystemMarker>(EntityManager, Entities);
-			foreach (var cellPosition in _gravityChangerPlannedPositions)
+			if (positions.Count > 0)
 			{
-				process.Add(new GenerateGravityChangerRequest {Position = cellPosition}, new CollapseSystemMarker());
+				var process = new ProcessGroup<GenerateGravityChangerRequest, CollapseSystemMarker>(EntityManager, Entities);
+				foreach (var cellPosition in positions)
+				{
+					process.Add(new GenerateGravityChangerRequest {Position = cellPosition}, new CollapseSystemMarker());
+				}
+
+				positions.Clear();
+				return process;
 			}
-			_gravityChangerPlannedPositions.Clear();
-			return process;
+			return new EmptyProcess();
 		}
 		
 		private IProcess RequestRefill()
@@ -111,11 +106,7 @@
 		private IProcess RequestGravity()
 		{
 			Debug.Log($"-- Gravity Request {GameStateHelper.GetCounter(Entities)}");
-			
-			var process = new ProcessGroup<GravityRequest, CollapseSystemMarker>(EntityManager, Entities);
-			process.Add(new GravityRequest(), new CollapseSystemMarker());
-
-			return process;
+			return new Process<GravityRequest, CollapseSystemMarker>(EntityManager, Entities, new GravityRequest(), new CollapseSystemMarker());
 		}
 	}
 }
