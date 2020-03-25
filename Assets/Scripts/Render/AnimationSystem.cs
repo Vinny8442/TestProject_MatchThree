@@ -22,7 +22,7 @@ namespace DefaultNamespace
 	}
 	
 	
-	public struct AnimationComponent : IComponentData, ICompletable
+	public struct AnimationComponent : IComponentData, IProcessEntity
 	{
 		private Vector2 _fromPosition;
 		private Vector2 _toPosition;

@@ -13,81 +13,125 @@ namespace DefaultNamespace
 
 	public interface IPromise
 	{
+		// void Update();
+		IPromise Then(Func<IPromise> promise);
+		IPromise Then(Func<IProcess> process);
+		void Then(Action after);
 		void Update();
 	}
 
 	public class Promise : IPromise
 	{
-		private Func<IProcess> _after1;
-		private Action _after2;
-		private Promise _next;
+		public event Action Completed;
+		public event Action ChainCompleted;
+		
+		private readonly Func<IProcess> _processFunc;
+		private readonly Func<IPromise> _promiseFunc;
+		private readonly Action _voidFunc;
+		
 		private IProcess _process;
-		private bool _executed;
+		private Promise _innerPromise;
+		private Promise _nextPromise;
 
 		public Promise(IProcess process)
 		{
 			_process = process;
 			if (_process.Completed)
 			{
-				OnProcessComplete();
+				FullFilled();
 			}
 			else
 			{
-				_process.OnReadyToRelease += p => OnProcessComplete();
+				_process.OnReadyToRelease += p => FullFilled();
 			}
 		}
-
-		private void OnProcessComplete()
+		
+		private Promise(Func<IProcess> processFunc)
 		{
-			_next.Start();
+			_processFunc = processFunc;
 		}
 
-		private void Start()
+		private Promise(Func<IPromise> promiseFunc)
 		{
-			if (_after1 != null)
+			_promiseFunc = promiseFunc;
+		}
+
+		private Promise(Action voidFunc)
+		{
+			_voidFunc = voidFunc;
+		}
+
+		public void Start()
+		{
+			if (_processFunc != null)
 			{
-				_process = _after1.Invoke();
+				_process = _processFunc.Invoke();
 				if (_process.Completed)
 				{
-					OnProcessComplete();
+					FullFilled();
 				}
 				else
 				{
-					_process.OnReadyToRelease += p => OnProcessComplete();
+					_process.OnReadyToRelease += p => FullFilled();
 				}
+			}
+			else if (_promiseFunc != null)
+			{
+				_innerPromise = (Promise) _promiseFunc.Invoke();
+				_innerPromise.Completed += FullFilled;
+			}
+			else if (_voidFunc != null)
+			{
+				_voidFunc.Invoke();
+				FullFilled();
+			}
+		}
+
+		public IPromise Then(Func<IProcess> processFunc)
+		{
+			_nextPromise = new Promise(processFunc);
+			return _nextPromise;
+		}
+		
+		public IPromise Then(Func<IPromise> promiseFunc)
+		{
+			_nextPromise = new Promise(promiseFunc);
+			return _nextPromise;
+		}
+
+		public void Then(Action action)
+		{
+			_nextPromise = new Promise(action);
+		}
+
+		private void FullFilled()
+		{
+			Completed?.Invoke();
+			if (_nextPromise != null)
+			{
+				_nextPromise.Start();
+				_nextPromise.ChainCompleted += OnNextChainCompleted;
 			}
 			else
 			{
-				_after2?.Invoke();
+				OnNextChainCompleted();
 			}
 		}
 
-		public Promise()
+		private void OnNextChainCompleted()
 		{
-			
-		}
-
-		public Promise Then(Func<IProcess> after)
-		{
-			_after1 = after;
-			_next = new Promise();
-			return _next;
-		}
-
-		public void Then(Action after)
-		{
-			_after2 = after;
+			ChainCompleted?.Invoke();
 		}
 
 		public void Update()
 		{
 			_process?.Update();
-			_next?.Update();
+			_nextPromise?.Update();
 		}
 	}
 	
 	public class ProcessGroup<TComponent, TMarker> : IProcess 
-		where TComponent:struct, ICompletable, IComponentData
+		where TComponent:struct, IProcessEntity, IComponentData
 		where TMarker:struct, IComponentData
 	{
 		private EntityManager _em;
@@ -99,14 +143,6 @@ namespace DefaultNamespace
 		public event CompletableCallback<Entity, TComponent, TMarker> OnItemCompleted;
 		public event Action<ProcessGroup<TComponent, TMarker>> OnCompleted;
 		public event Action<IProcess> OnReadyToRelease;
-
-		
-		// public ICompletableHandler Then(Func<ICompletableHandler> after)
-		// {
-		// 	new AfterHolder(this)
-		// 	OnCompleted += handler => { after.Invoke(); };
-		// 	return next;
-		// }
 
 		public ProcessGroup(EntityManager em, EntityQueryBuilder entities)
 		{
@@ -168,5 +204,16 @@ namespace DefaultNamespace
 			_items.Clear();
 		}
 
+	}
+	
+	public class EmptyProcess : IProcess
+	{
+		public event Action<IProcess> OnReadyToRelease;
+		public bool Completed { get; private set; }
+		public void Update()
+		{
+			Completed = true;
+			OnReadyToRelease?.Invoke(this);
+		}
 	}
 }

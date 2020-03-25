@@ -8,25 +8,34 @@ using Random = UnityEngine.Random;
 
 namespace DefaultNamespace
 {
-	internal struct RefillTimerMarker : IComponentData { }
-
-	public struct RefillRequest : IComponentData
+	internal struct GenerateCellData : IComponentData
 	{
-		public bool Value;
+		public int x;
+		public int y;
+		public Color Color;
+	}
+
+	public struct GenerateLineRequest : IComponentData, IProcessEntity
+	{
+		public RequestStatus Status;
+		public bool Completed => Status == RequestStatus.Complete;
 	}
 	
-	internal struct GenerateGravityChangerRequest : IComponentData, ICompletable
+	internal struct GenerateGravityChangerRequest : IComponentData, IProcessEntity
 	{
 		public CellPosition Position;
 		public bool Completed { get; internal set; }
 	}
 
-	public class GenerateCellsSystem : ComponentSystem
+	public struct GenerateAllRequest : IComponentData, IProcessEntity
+	{
+		public bool Completed { get; internal set; }
+	}
+
+	public class GenerateCellsSystem : ComponentSystemWithExtras
 	{
 		private static float GenerateTimeout = 0.2f;
 		
-		private Dictionary<Entity, Action> _plannedActions = new Dictionary<Entity, Action>();
-		private bool _inProgress = false;
 		private GameStateHelper _helper;
 
 		protected override void OnStartRunning()
@@ -36,39 +45,30 @@ namespace DefaultNamespace
 
 		protected override void OnUpdate()
 		{
+			UpdateProcesses();
+			
 			GenerateGravityChangers();
 			
-			
-			Entities.WithAllReadOnly<TimerComponent, RefillTimerMarker>().ForEach((Entity entity, ref TimerComponent timer) =>
-			{
-				if (timer.Completed)
-				{
-					if (_plannedActions.TryGetValue(entity, out var action))
-					{
-						_plannedActions.Remove(entity);
-						action.Invoke();
+			GenerateTopLine();
+		}
 
-						if (_inProgress && _plannedActions.Count == 0)
-						{
-							_inProgress = false;
-							RequestGravity();
-						}
-					}
-					// PostUpdateCommands.DestroyEntity(entity);
-				}
-			});
-			
-			FillTopLine();
+		private void GenerateAll()
+		{
 			
 		}
 
-		private void FillTopLine()
+		private void GenerateTopLine()
 		{
 			bool active = false;
-			Entities.ForEach((Entity entity, ref RefillRequest request) =>
+			Entity  refillEntity = Entity.Null;
+			Entities.ForEach((Entity entity, ref GenerateLineRequest request) =>
 			{
-				active = true;
-				EntityManager.DestroyEntity(entity);
+				if (request.Status == RequestStatus.New)
+				{
+					refillEntity = entity;
+					active = true;
+					request.Status = RequestStatus.Processing;
+				}
 			});
 
 			if (!active)
@@ -76,6 +76,7 @@ namespace DefaultNamespace
 				return;
 			}
 
+			var process = new ProcessGroup<TimerComponent, GenerateCellData>(EntityManager, Entities);
 			GameFieldSize fieldSize = _helper.GetSize();
 			Color[] colors = _helper.GetColors();
 			CellsMap map = new CellsMap(EntityManager);
@@ -85,11 +86,21 @@ namespace DefaultNamespace
 			{
 				if (!map.GetCell(i, y, out var cell))
 				{
-					_inProgress = true;
 					delay += GenerateTimeout;
-					AddCellAfterDelay(i, y, delay, colors);
+					process.Add(new TimerComponent(delay), new GenerateCellData{x = i, y = y, Color = colors.GetRandom()});
 				}
 			}
+
+			process.OnItemCompleted += (Entity entity, ref TimerComponent completable, ref GenerateCellData marker) =>
+			{
+				AddCellAt(marker.x, marker.y, marker.Color);
+			};
+			process.OnCompleted += group =>
+			{
+				EntityManager.SetComponentData(refillEntity, new GenerateLineRequest{Status = RequestStatus.Complete});
+				DestroyEntityAfterFrame(refillEntity, 2);
+			};
+			HoldProcess(process);
 		}
 
 		private void GenerateGravityChangers()
@@ -98,39 +109,24 @@ namespace DefaultNamespace
 			{
 				if (!gcRequest.Completed)
 				{
-					AddCellAt(gcRequest.Position.x, gcRequest.Position.y, _helper.GetColors(), CellType.Special);
+					AddCellAt(gcRequest.Position.x, gcRequest.Position.y, _helper.GetColors().GetRandom(), CellType.Special);
 					gcRequest.Completed = true;
-					Debug.Log($"-- gcr completed {GameStateHelper.GetCounter(Entities)}");
 				}
 				else
 				{
-					Debug.Log($"-- gcr Destr {GameStateHelper.GetCounter(Entities)}");
 					PostUpdateCommands.DestroyEntity(entity);
 				}
 			});
 		}
 
-		private void RequestGravity()
-		{
-			Entity entity = EntityManager.CreateEntity(typeof(GravityRequest));
-			EntityManager.SetComponentData(entity, new GravityRequest());
-		}
-
-		private void AddCellAfterDelay(int x, int y, float delay, Color[] colors)
-		{
-			Entity entity = EntityManager.CreateEntity(typeof(TimerComponent), typeof(RefillTimerMarker));
-			EntityManager.AddComponentData(entity, new TimerComponent(delay));
-			_plannedActions.Add(entity, () => { AddCellAt(x, y, colors);});
-		}
-
-		private void AddCellAt(int x, int y, Color[] colors, CellType type = CellType.Simple)
+		private void AddCellAt(int x, int y, Color color, CellType type = CellType.Simple)
 		{
 			Entity entity = EntityManager.CreateEntity(TMPArchetypeLibrary.CellsArchetype);
 			EntityManager.SetComponentData(entity, new CellPosition{x = x, y = y});
 			EntityManager.SetComponentData(entity, new CellContent
 			{
 				type = type,
-				Color = colors[Random.Range(0, colors.Length)]
+				Color = color
 			});
 		}
 	}

@@ -13,31 +13,18 @@
 		public Entity Cell;
 	}
 	
-	public class CellCollapseSystem : ComponentSystemWithHandlers
+	public class CellCollapseSystem : ComponentSystemWithExtras
 	{
 		private static float CollapseTimeout = 0.2f;
 
-		private EntityArchetype _cellDestroyArchetype;
-		// private CompletableGroupHandler<TimerComponent, CollapseSystemMarker> _timersHandler;
-		private bool _inProgress = false;
-		// private Entity _gravityRequest;
 		private List<CellPosition> _gravityChangerPlannedPositions = new List<CellPosition>();
-		// private CompletableGroupHandler<GenerateGravityChangerRequest, CollapseSystemMarker> _gcHandler;
-
-		protected override void OnStartRunning()
-		{
-			// _timersHandler = new CompletableGroupHandler<TimerComponent, CollapseSystemMarker>(EntityManager, Entities);
-			// _timersHandler.OnCompleted += OnCollapseAnimationComplete;
-			// _timersHandler.OnItemCompleted += OnCollapseTimerComplete;
-			_cellDestroyArchetype = EntityManager.CreateArchetype(typeof(CellDestroyNotification));
-		}
 
 		protected override void OnUpdate()
 		{
 			float timeout = CollapseTimeout;
 			Dictionary<Entity, bool> processedCells = null;
 			
-			ProcessGroup<TimerComponent, CollapseSystemMarker> timersHandler = null;
+			ProcessGroup<TimerComponent, CollapseSystemMarker> timerProcess = null;
 			Entities.WithAll<CollapseCellsRequest>().ForEach((Entity entity) =>
 			{
 				if (processedCells == null)
@@ -45,11 +32,10 @@
 					processedCells = new Dictionary<Entity, bool>();
 				}
 
-				if (timersHandler == null)
+				if (timerProcess == null)
 				{
-					timersHandler = Keep(new ProcessGroup<TimerComponent, CollapseSystemMarker>(EntityManager, Entities));
-					timersHandler.OnCompleted += OnCollapseAnimationComplete;
-
+					timerProcess = HoldProcess(new ProcessGroup<TimerComponent, CollapseSystemMarker>(EntityManager, Entities));
+					timerProcess.OnCompleted += OnCollapseAnimationComplete;
 				}
 				var cellsToCollapse = EntityManager.GetBuffer<CellToCollapse>(entity).ToArray();
 				if (cellsToCollapse.Length >= 4)
@@ -62,8 +48,8 @@
 				{
 					var cellToCollapse = cellsToCollapse[i];
 					if (processedCells.ContainsKey(cellToCollapse.Value)) continue;
-					timersHandler.Add(new TimerComponent(timeout), new CollapseSystemMarker{Cell = cellToCollapse.Value});
-					timersHandler.OnItemCompleted += OnCollapseTimerComplete;
+					timerProcess.Add(new TimerComponent(timeout), new CollapseSystemMarker{Cell = cellToCollapse.Value});
+					timerProcess.OnItemCompleted += OnCellCollapsed;
 					timeout += CollapseTimeout;
 					processedCells[cellToCollapse.Value] = true;
 
@@ -80,54 +66,56 @@
 				EntityManager.DestroyEntity(entity);
 			});
 			
-			// TODO почему при перемещении наверх перестает сюда заходить 
-			// _timersHandler.Update();
-			// TODO  пусть система сама его держит, апдейтит и освобождает
-			// _gcHandler?.Update();
-			UpdateHolders();
-		}
-		
-		private void RequestRefill()
-		{
-			Entity refillRequest = EntityManager.CreateEntity(typeof(RefillRequest));
-			EntityManager.SetComponentData(refillRequest, new RefillRequest());
+			UpdateProcesses();
 		}
 
-		private void OnCollapseTimerComplete(Entity entity, ref TimerComponent timer, ref CollapseSystemMarker marker)
+		private void OnCellCollapsed(Entity entity, ref TimerComponent timer, ref CollapseSystemMarker marker)
 		{
-			Entity destroyNotification = EntityManager.CreateEntity(_cellDestroyArchetype);
-			EntityManager.SetComponentData(destroyNotification, new CellDestroyNotification{Entity = marker.Cell});
+			EntityManager.CreateEntity(new CellDestroyNotification{Entity = marker.Cell});
 		}
 
 		private void OnCollapseAnimationComplete(ProcessGroup<TimerComponent, CollapseSystemMarker> group)
 		{
 			if (_gravityChangerPlannedPositions.Count > 0)
 			{
-				var gcHandler = Keep(new ProcessGroup<GenerateGravityChangerRequest, CollapseSystemMarker>(EntityManager, Entities));
-				foreach (var cellPosition in _gravityChangerPlannedPositions)
-				{
-					gcHandler.Add(new GenerateGravityChangerRequest {Position = cellPosition}, new CollapseSystemMarker());
-				}
-
-				gcHandler.OnCompleted += handler => { CreateGravityRequest(); };
-				_gravityChangerPlannedPositions.Clear();
+				HoldPromise(GenerateGravityChangers())
+					.Then(RequestGravity)
+					.Then(RequestRefill)
+					.Then(RequestGravity);
 			}
 			else
 			{
-				CreateGravityRequest();
+				HoldPromise(RequestGravity())
+					.Then(RequestRefill)
+					.Then(RequestGravity);
 			}
 		}
 
-		private void CreateGravityRequest()
+		private IProcess GenerateGravityChangers()
+		{
+			var process = new ProcessGroup<GenerateGravityChangerRequest, CollapseSystemMarker>(EntityManager, Entities);
+			foreach (var cellPosition in _gravityChangerPlannedPositions)
+			{
+				process.Add(new GenerateGravityChangerRequest {Position = cellPosition}, new CollapseSystemMarker());
+			}
+			_gravityChangerPlannedPositions.Clear();
+			return process;
+		}
+		
+		private IProcess RequestRefill()
+		{
+			Debug.Log($"-- Refill Request {GameStateHelper.GetCounter(Entities)}");
+			return new Process<GenerateLineRequest, CollapseSystemMarker>(EntityManager, Entities, new GenerateLineRequest(), new CollapseSystemMarker());
+		}
+
+		private IProcess RequestGravity()
 		{
 			Debug.Log($"-- Gravity Request {GameStateHelper.GetCounter(Entities)}");
-			var groupHandler = Keep(new ProcessGroup<GravityRequest, CollapseSystemMarker>(EntityManager, Entities));
-			groupHandler.Add(new GravityRequest(), new CollapseSystemMarker());
-			groupHandler.OnCompleted +=
-				handler =>
-				{
-					RequestRefill();
-				};
+			
+			var process = new ProcessGroup<GravityRequest, CollapseSystemMarker>(EntityManager, Entities);
+			process.Add(new GravityRequest(), new CollapseSystemMarker());
+
+			return process;
 		}
 	}
 }

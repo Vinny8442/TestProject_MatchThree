@@ -1,6 +1,6 @@
 ﻿namespace DefaultNamespace
 {
-	public interface ICompletable
+	public interface IProcessEntity
 	{
 		bool Completed { get; }
 	}

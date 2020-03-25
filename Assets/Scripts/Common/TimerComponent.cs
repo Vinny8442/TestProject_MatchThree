@@ -2,7 +2,7 @@
 
 namespace DefaultNamespace
 {
-	public struct TimerComponent : IComponentData, ICompletable
+	public struct TimerComponent : IComponentData, IProcessEntity
 	{
 		public bool IsReadyToClear;
 		public float TimeLeft;

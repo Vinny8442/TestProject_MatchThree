@@ -1,4 +1,5 @@
 ﻿using Unity.Entities;
+using UnityEngine;
 
 namespace DefaultNamespace
 {
@@ -20,6 +21,11 @@ namespace DefaultNamespace
 			Entity result = em.CreateEntity(typeof(T));
 			em.SetComponentData(result, component);
 			return result;
+		}
+
+		public static T GetRandom<T>(this T[] source)
+		{
+			return source[Random.Range(0, source.Length)];
 		}
 	}
 }

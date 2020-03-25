@@ -90,6 +90,6 @@ namespace DefaultNamespace
 
 	public struct CollapseCellsRequest : IComponentData
 	{
-		
+		public RequestStatus Status;
 	}
 }

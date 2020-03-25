@@ -1,9 +1,10 @@
-﻿using Unity.Entities;
+﻿using System;
+using Unity.Entities;
 
 namespace DefaultNamespace
 {
-	public class CompletableHandlerSingle<TComponent, TMarker> 
-		where TComponent:struct, ICompletable, IComponentData
+	public class Process<TComponent, TMarker> : IProcess 
+		where TComponent:struct, IProcessEntity, IComponentData
 		where TMarker:struct, IComponentData
 	{
 		private EntityManager _em;
@@ -14,20 +15,21 @@ namespace DefaultNamespace
 		
 		public event CompletableCallback<Entity, TComponent, TMarker> OnCompleted;
 
-		public CompletableHandlerSingle(EntityManager em, EntityQueryBuilder entities)
+		public Process(EntityManager em, EntityQueryBuilder entities, TComponent component, TMarker marker)
 		{
 			_entities = entities;
 			_em = em;
 			_queryBuilder = _entities.WithAllReadOnly<TComponent, TMarker>();
-		}
-
-		public void Init(TComponent component, TMarker marker)
-		{
+			
 			_client = _em.CreateEntity(typeof(TComponent), typeof(TMarker));
 			_em.SetComponentData(_client, component);
 			_em.SetComponentData(_client, marker);
 		}
-		
+
+		public event Action<IProcess> OnReadyToRelease;
+
+		public bool Completed { get; private set; }
+
 		public void Update()
 		{
 			if (_client == Entity.Null) return;
@@ -38,8 +40,10 @@ namespace DefaultNamespace
 				{
 					if (component.Completed)
 					{
-						OnCompleted(entity, ref component, ref marker);
 						_client = Entity.Null;
+						Completed = true;
+						OnCompleted?.Invoke(entity, ref component, ref marker);
+						OnReadyToRelease?.Invoke(this);
 					}
 				}
 			});

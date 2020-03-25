@@ -16,7 +16,7 @@ namespace DefaultNamespace.Game
 		public bool Value;
 	}
 	
-	public struct GravityRequest : IComponentData, ICompletable
+	public struct GravityRequest : IComponentData, IProcessEntity
 	{
 		public int Status;
 
@@ -25,7 +25,7 @@ namespace DefaultNamespace.Game
 	
 	[UpdateInGroup(typeof(PresentationSystemGroup))]
 	[UpdateAfter(typeof(CellDestroySystem))]
-	public class GravitySystem : ComponentSystemWithHandlers
+	public class GravitySystem : ComponentSystemWithExtras
 	{
 		private GameStateHelper _helper;
 		private readonly Dictionary<ProcessGroup<AnimationComponent, GravityAnimationMarker>, Entity> _requestByAnimation = new Dictionary<ProcessGroup<AnimationComponent, GravityAnimationMarker>, Entity>();  
