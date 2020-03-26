@@ -7,23 +7,25 @@ namespace DefaultNamespace
 	public class InitSystem : ComponentSystem
 	{
 		private Entity _gameEntity;
+		private static string GameSettingLinkage = "Config/GameSettings";
 
 		protected override void OnStartRunning()
 		{
+			GameSettings config = Resources.Load<GameSettings>(GameSettingLinkage);
 			_gameEntity = EntityManager.CreateEntity(typeof(GameComponent));
 
 			EntityManager.AddComponent(_gameEntity, typeof(GameFieldSize));
-			EntityManager.SetComponentData(_gameEntity, new GameFieldSize{Width = 10, Height = 10});
+			EntityManager.SetComponentData(_gameEntity, new GameFieldSize{Width = config.Width, Height = config.Height});
 
-			var colors = new[] {Color.blue, Color.cyan, Color.green, Color.magenta, Color.red, Color.yellow};
 			var colorsBuffer = EntityManager.AddBuffer<GameColor>(_gameEntity);
-			foreach (Color color in colors)
+			foreach (Color color in config.Colors)
 			{
 				colorsBuffer.Add(new GameColor{Color = color});
 			}
 
 			EntityManager.AddComponent<GameGravityDirection>(_gameEntity);
 			EntityManager.SetComponentData(_gameEntity, new GameGravityDirection{Value = GravityDirection.Down});
+			EntityManager.SetComponentData(_gameEntity, new GameComponent{IsInited = true});
 		}
 
 		protected override void OnUpdate()

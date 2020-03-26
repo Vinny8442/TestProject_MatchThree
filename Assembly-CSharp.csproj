@@ -88,7 +88,6 @@
      <Compile Include="Assets\Scripts\Matching\HorizontalMatcher.cs" />
      <Compile Include="Assets\Scripts\Matching\IMatchDetector.cs" />
      <Compile Include="Assets\Scripts\Matching\MatchCheckResult.cs" />
-     <Compile Include="Assets\Scripts\Matching\SwitchRequest.cs" />
      <Compile Include="Assets\Scripts\Matching\SwitchSystem.cs" />
      <Compile Include="Assets\Scripts\Matching\VerticalMatcher.cs" />
      <Compile Include="Assets\Scripts\Notifications\CellClickedNotification.cs" />

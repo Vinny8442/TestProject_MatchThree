@@ -9,7 +9,6 @@ namespace DefaultNamespace
 	{
 		private EntityManager _em;
 		private EntityQueryBuilder _entities;
-		private bool _inProgress = false;
 		private Entity _client;
 		private EntityQueryBuilder _queryBuilder;
 		

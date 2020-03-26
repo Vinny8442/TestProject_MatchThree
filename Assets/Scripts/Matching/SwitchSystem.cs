@@ -8,30 +8,21 @@ namespace DefaultNamespace
 	{
 		private IMatchDetector[] _matchers = {new HorizontalMatcher(), new VerticalMatcher()};
 
-		private EntityArchetype _updateNotificationArchetype;
-
-		protected override void OnStartRunning()
-		{
-			_updateNotificationArchetype = EntityManager.CreateArchetype(typeof(CellUpdatedNotification));
-		}
-
 		protected override void OnUpdate()
 		{
 			Entities.ForEach((Entity entity, ref SwitchRequest switchRequest) =>
 			{
 				if (ReplacementPossible(switchRequest.cell1, switchRequest.cell2, out var matchResults))
 				{
-					// EntityManager.CreateEntity(_resetSelectionArchetype);
 					EntityManager.CreateEntity(new ResetSelection());
 					
 					var position1 = EntityManager.GetComponentData<CellPosition>(switchRequest.cell1);
 					var position2 = EntityManager.GetComponentData<CellPosition>(switchRequest.cell2);
 					EntityManager.SetComponentData(switchRequest.cell1, position2);
 					EntityManager.SetComponentData(switchRequest.cell2, position1);
-					GenerateNotification(switchRequest.cell1);
-					GenerateNotification(switchRequest.cell2);
+					NotifyCellUpdated(switchRequest.cell1);
+					NotifyCellUpdated(switchRequest.cell2);
 
-					// var archetype = EntityManager.CreateArchetype(typeof(CollapseCells));
 					foreach (var matchResult in matchResults)
 					{
 						Entity collapse = EntityManager.CreateEntity(typeof(CellToCollapse), typeof(CollapseCellsRequest));
@@ -47,7 +38,7 @@ namespace DefaultNamespace
 			});
 		}
 
-		private void GenerateNotification(Entity entity)
+		private void NotifyCellUpdated(Entity entity)
 		{
 			EntityManager.CreateEntity(new CellUpdatedNotification{Entity = entity});
 		}
@@ -81,6 +72,12 @@ namespace DefaultNamespace
 			return result.Count > 0;
 		}
 
+	}
+	
+	public struct SwitchRequest : IComponentData
+	{
+		public Entity cell1;
+		public Entity cell2;
 	}
 
 	public struct CellToCollapse : IBufferElementData
