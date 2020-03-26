@@ -8,7 +8,6 @@ namespace DefaultNamespace
 		private EntityManager _em;
 		private EntityQueryBuilder _entities;
 		private Entity _game;
-		private GravityDirection _gravity;
 
 		public GameStateHelper(EntityManager em, EntityQueryBuilder entities)
 		{
@@ -17,7 +16,6 @@ namespace DefaultNamespace
 			Entity game = Entity.Null;
 			_entities.WithAllReadOnly<GameComponent>().ForEach(entity => { game = entity; });
 			_game = game;
-			_gravity = _em.GetComponentData<GameGravityDirection>(_game).Value;
 		}
 
 		public Color[] GetColors()
@@ -42,7 +40,6 @@ namespace DefaultNamespace
 
 			private set
 			{
-				_gravity = value;
 				_em.SetComponentData(_game, new GameGravityDirection{Value = value});
 			}
 		}
@@ -58,6 +55,13 @@ namespace DefaultNamespace
 			long result = 0;
 			entities.WithAllReadOnly<FrameCounter>().ForEach((ref FrameCounter counter) => { result = counter.Value; });
 			return result;
+		}
+
+		public static WorldPositionConverter CreateWorldPositionConverter(EntityQueryBuilder entities)
+		{
+			GameFieldSize size = new GameFieldSize();
+			entities.WithAllReadOnly<GameFieldSize>().ForEach((ref GameFieldSize s) => size = s);
+			return new WorldPositionConverter(size);
 		}
 	}
 }

@@ -15,6 +15,13 @@ namespace DefaultNamespace
 	[UpdateBefore(typeof(RenderSystem))]
 	public class ToWorldPositionSystem : ComponentSystem
 	{
+		private WorldPositionConverter _converter;
+
+		protected override void OnStartRunning()
+		{
+			_converter = GameStateHelper.CreateWorldPositionConverter(Entities);
+		}
+
 		protected override void OnUpdate()
 		{
 			Dictionary<Entity, bool> destroyedCells = new Dictionary<Entity, bool>();
@@ -64,7 +71,7 @@ namespace DefaultNamespace
 
 		private Vector2 ToWorldPosition(Vector2 input)
 		{
-			return input;
+			return _converter.LogicToWorld(input);
 		}
 	}
 }

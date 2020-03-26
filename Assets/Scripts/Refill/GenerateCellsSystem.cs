@@ -24,6 +24,7 @@ namespace DefaultNamespace
 	internal struct GenerateGravityChangerRequest : IComponentData, IProcessEntity
 	{
 		public CellPosition Position;
+		public CellContent Content;
 		public bool Completed { get; internal set; }
 	}
 
@@ -35,7 +36,7 @@ namespace DefaultNamespace
 
 	public class GenerateCellsSystem : ComponentSystemWithExtras
 	{
-		private static float GenerateTimeout = 0.2f;
+		private static float GenerateTimeout = 0.05f;
 		
 		private GameStateHelper _helper;
 		private EntityArchetype _cellsArchetype;
@@ -136,7 +137,7 @@ namespace DefaultNamespace
 			{
 				if (!gcRequest.Completed)
 				{
-					AddCellAt(gcRequest.Position.x, gcRequest.Position.y, _helper.GetColors().GetRandom(), CellType.Special);
+					AddCellAt(gcRequest.Position.x, gcRequest.Position.y, gcRequest.Content.Color, CellType.Special);
 					gcRequest.Completed = true;
 				}
 				else

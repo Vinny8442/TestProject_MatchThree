@@ -100,6 +100,7 @@
      <Compile Include="Assets\Scripts\Render\RenderSystem.cs" />
      <Compile Include="Assets\Scripts\Render\SelectionSystem.cs" />
      <Compile Include="Assets\Scripts\Render\ToWorldPositionSystem.cs" />
+     <Compile Include="Assets\Scripts\Render\WorldPositionConverter.cs" />
      <Compile Include="Assets\Scripts\Starter.cs" />
      <Compile Include="Assets\Scripts\UserInputSystem.cs" />
  <Reference Include="Unity.Timeline.Editor">

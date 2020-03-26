@@ -12,10 +12,10 @@
 	{
 		public Entity Cell;
 	}
-	
+
 	public class CellCollapseSystem : ComponentSystemWithExtras
 	{
-		private static float CollapseTimeout = 0.2f;
+		private static float CollapseTimeout = 0.05f;
 
 		protected override void OnUpdate()
 		{
@@ -23,7 +23,7 @@
 			Dictionary<Entity, bool> processedCells = null;
 			
 			ProcessGroup<TimerComponent, CollapseSystemMarker> timerProcess = null;
-			List<CellPosition> gravityChangers = new List<CellPosition>();
+			List<GenerateGravityChangerRequest> gravityChangers = new List<GenerateGravityChangerRequest>();
 			Entities.WithAll<CollapseCellsRequest>().ForEach((Entity entity) =>
 			{
 				if (processedCells == null)
@@ -39,7 +39,10 @@
 				var cellsToCollapse = EntityManager.GetBuffer<CellToCollapse>(entity).ToArray();
 				if (cellsToCollapse.Length >= 4)
 				{
-					gravityChangers.Add(EntityManager.GetComponentData<CellPosition>(cellsToCollapse[Random.Range(0, cellsToCollapse.Length)].Value));
+					CellPosition gcPosition = EntityManager.GetComponentData<CellPosition>(cellsToCollapse[Random.Range(0, cellsToCollapse.Length)].Value);
+					CellContent gcContent = EntityManager.GetComponentData<CellContent>(cellsToCollapse[Random.Range(0, cellsToCollapse.Length)].Value);
+					gcContent.type = CellType.Special;
+					gravityChangers.Add(new GenerateGravityChangerRequest{Position = gcPosition, Content = gcContent});
 				}
 
 				bool invertGravity = false;
@@ -73,7 +76,7 @@
 			EntityManager.CreateEntity(new CellDestroyNotification{Entity = marker.Cell});
 		}
 
-		private void OnCollapseAnimationComplete(List<CellPosition> gravityChangers)
+		private void OnCollapseAnimationComplete(List<GenerateGravityChangerRequest> gravityChangers)
 		{
 			HoldPromise(GenerateGravityChangers(gravityChangers))
 				.Then(RequestGravity)
@@ -81,17 +84,17 @@
 				.Then(RequestGravity);
 		}
 
-		private IProcess GenerateGravityChangers(List<CellPosition> positions)
+		private IProcess GenerateGravityChangers(List<GenerateGravityChangerRequest> requests)
 		{
-			if (positions.Count > 0)
+			if (requests.Count > 0)
 			{
 				var process = new ProcessGroup<GenerateGravityChangerRequest, CollapseSystemMarker>(EntityManager, Entities);
-				foreach (var cellPosition in positions)
+				foreach (var request in requests)
 				{
-					process.Add(new GenerateGravityChangerRequest {Position = cellPosition}, new CollapseSystemMarker());
+					process.Add(request, new CollapseSystemMarker());
 				}
 
-				positions.Clear();
+				requests.Clear();
 				return process;
 			}
 			return new EmptyProcess();

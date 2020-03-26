@@ -13,6 +13,7 @@ namespace DefaultNamespace
 		private GameObject _cellBackPrefab;
 		private Dictionary<Entity, CellContentController> _cellViews = new Dictionary<Entity, CellContentController>();
 		private GameStateHelper _gameHelper;
+		private WorldPositionConverter _positionConverter;
 
 		public void Init(GameObject cellBackPrefab, GameObject cellContentPrefab)
 		{
@@ -22,6 +23,8 @@ namespace DefaultNamespace
 
 		protected override void OnStartRunning()
 		{
+			_positionConverter = GameStateHelper.CreateWorldPositionConverter(Entities);
+			
 			_gameHelper = new GameStateHelper(EntityManager, Entities);
 
 			for (int i = 0; i < _gameHelper.GetSize().Width; i++)
@@ -29,7 +32,8 @@ namespace DefaultNamespace
 				for (int j = 0; j < _gameHelper.GetSize().Height; j++)
 				{
 					Transform cellBack = GameObject.Instantiate(_cellBackPrefab).transform;
-					cellBack.position = new Vector3(i * 1.0f,j * 1.0f);
+					Vector2 woorldPosition = _positionConverter.LogicToWorld(new Vector2(i, j));
+					cellBack.position = new Vector3(woorldPosition.x, woorldPosition.y);
 				}
 			}
 			
